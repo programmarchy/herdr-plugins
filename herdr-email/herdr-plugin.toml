@@ -1,0 +1,29 @@
+id = "programmarchy.email-bridge"
+name = "Email Bridge"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+description = "Route authenticated AgentMail messages to agents by workspace and tab"
+platforms = ["macos", "linux"]
+
+[[build]]
+command = ["python3", "-m", "venv", ".venv"]
+
+[[build]]
+command = [".venv/bin/python", "-m", "pip", "install", "-r", "requirements.txt"]
+
+[[panes]]
+id = "bridge"
+title = "Email Bridge"
+placement = "tab"
+command = [".venv/bin/python", "bridge.py", "run"]
+
+[[panes]]
+id = "setup"
+title = "Configure Email Bridge"
+placement = "overlay"
+command = [".venv/bin/python", "bridge.py", "setup"]
+
+[[actions]]
+id = "status"
+title = "Email Bridge status"
+command = [".venv/bin/python", "bridge.py", "status"]
