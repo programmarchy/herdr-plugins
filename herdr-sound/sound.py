@@ -64,8 +64,8 @@ def set_enabled(mode):
                 os.replace(temp_path, CONFIG)
             finally:
                 temp_path.unlink(missing_ok=True)
-    if not next_enabled:
-        stop_audio()
+        if not next_enabled:
+            stop_audio()
     title = "ambient sound unmuted" if next_enabled else "ambient sound muted"
     print(title)
     try:
@@ -151,13 +151,24 @@ def play(kind, config=None):
         return False
     if sys.platform != "darwin":
         return False
+    CONFIG.parent.mkdir(parents=True, exist_ok=True)
     try:
-        # afplay can hang after the WAV ends; never leave one running indefinitely.
-        result = subprocess.run(["afplay", "-v", str(config["volume"]), str(audio_path(kind))],
-                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL, timeout={"pulse": 1.7, "tool": 1.25, "done": 1.8}[kind])
-        return result.returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
+        # Tool calls may wait on a cooldown lock with a stale enabled setting.
+        # Coordinate spawning with mute so it can stop every player before returning.
+        with open(CONFIG.with_name(CONFIG.name + ".lock"), "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_SH)
+            if not settings()["enabled"]:
+                return False
+            player = subprocess.Popen(["afplay", "-v", str(config["volume"]), str(audio_path(kind))],
+                                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL)
+        try:
+            return player.wait(timeout={"pulse": 1.7, "tool": 1.25, "done": 1.8}[kind]) == 0
+        except subprocess.TimeoutExpired:
+            player.kill()
+            player.wait()
+            return False
+    except OSError:
         return False
 
 

@@ -44,11 +44,27 @@ class SoundTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in kill.call_args_list], [101, 102])
 
     def test_play_times_out_if_afplay_hangs(self):
-        with mock.patch.object(sound.sys, "platform", "darwin"), \
-             mock.patch.object(sound, "audio_path", return_value=Path("/tmp/pulse.wav")), \
-             mock.patch.object(sound.subprocess, "run", side_effect=subprocess.TimeoutExpired("afplay", 1.7)) as run:
-            self.assertFalse(sound.play("pulse", {"enabled": True, "pulse": True, "volume": 0.35}))
-            self.assertEqual(run.call_args.kwargs["timeout"], 1.7)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sound.json"
+            player = mock.Mock()
+            player.wait.side_effect = [subprocess.TimeoutExpired("afplay", 1.7), 0]
+            with mock.patch.object(sound, "CONFIG", path), \
+                 mock.patch.object(sound.sys, "platform", "darwin"), \
+                 mock.patch.object(sound, "audio_path", return_value=Path("/tmp/pulse.wav")), \
+                 mock.patch.object(sound.subprocess, "Popen", return_value=player):
+                self.assertFalse(sound.play("pulse", {"enabled": True, "pulse": True, "volume": 0.35}))
+            player.kill.assert_called_once()
+            self.assertEqual(player.wait.call_args_list[0].kwargs["timeout"], 1.7)
+
+    def test_queued_tool_cue_cannot_play_after_mute(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sound.json"
+            path.write_text('{"enabled": false}')
+            with mock.patch.object(sound, "CONFIG", path), \
+                 mock.patch.object(sound.sys, "platform", "darwin"), \
+                 mock.patch.object(sound.subprocess, "Popen") as player:
+                self.assertFalse(sound.play("tool", {"enabled": True, "tool": True, "volume": 0.35}))
+            player.assert_not_called()
 
     def test_rendered_audio_is_valid_and_decays(self):
         with tempfile.TemporaryDirectory() as directory:
