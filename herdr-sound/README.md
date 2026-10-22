@@ -31,6 +31,16 @@ Preview the sounds with `python3 sound.py preview`, or use the Herdr action `Pre
 
 ## Adjust or mute
 
+Control all three sounds from any terminal:
+
+```sh
+herdr plugin action invoke programmarchy.ambient-sound.mute
+herdr plugin action invoke programmarchy.ambient-sound.unmute
+herdr plugin action invoke programmarchy.ambient-sound.toggle
+```
+
+The change takes effect on the next cue, including in agents already running. Herdr actions have fixed commands, so the plugin declares one action for each choice. You can bind `programmarchy.ambient-sound.toggle` to a Herdr `plugin_action` keybinding if you want a keyboard shortcut.
+
 Create `~/.config/herdr/ambient-sound.json` as needed:
 
 ```json

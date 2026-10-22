@@ -11,6 +11,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import wave
 
@@ -40,6 +41,30 @@ def settings():
         except (TypeError, ValueError):
             defaults[key] = fallback
     return defaults
+
+
+def set_enabled(mode):
+    CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG.with_name(CONFIG.name + ".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = json.loads(CONFIG.read_text()) if CONFIG.exists() else {}
+        if not isinstance(data, dict):
+            raise ValueError(f"{CONFIG}: expected a JSON object")
+        enabled = data.get("enabled", True)
+        next_enabled = not enabled if mode == "toggle" else mode == "unmute"
+        if CONFIG.exists() and enabled == next_enabled:
+            print("Ambient Sound unmuted" if enabled else "Ambient Sound muted")
+            return
+        data["enabled"] = next_enabled
+        with tempfile.NamedTemporaryFile("w", dir=CONFIG.parent, prefix=CONFIG.name + ".", delete=False) as output:
+            temp_path = Path(output.name)
+            json.dump(data, output, indent=2, ensure_ascii=False)
+            output.write("\n")
+        try:
+            os.replace(temp_path, CONFIG)
+        finally:
+            temp_path.unlink(missing_ok=True)
+        print("Ambient Sound unmuted" if next_enabled else "Ambient Sound muted")
 
 
 def tone(t, frequency):
@@ -195,7 +220,7 @@ def tool():
 
 def main():
     parser = argparse.ArgumentParser(description="Herdr Ambient Sound")
-    parser.add_argument("command", choices=("watch", "tool", "preview", "render"))
+    parser.add_argument("command", choices=("watch", "tool", "preview", "render", "mute", "unmute", "toggle"))
     args = parser.parse_args()
     if args.command == "watch":
         watch()
@@ -204,6 +229,8 @@ def main():
     elif args.command == "render":
         for kind in SOUNDS:
             audio_path(kind)
+    elif args.command in ("mute", "unmute", "toggle"):
+        set_enabled(args.command)
     else:
         for kind in SOUNDS:
             print(kind, flush=True)

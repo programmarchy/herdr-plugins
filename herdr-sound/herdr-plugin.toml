@@ -1,6 +1,6 @@
 id = "programmarchy.ambient-sound"
 name = "Ambient Sound"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.8.0"
 description = "Gentle thinking, tool, and completion sounds for coding agents"
 platforms = ["macos"]
@@ -18,6 +18,21 @@ command = ["python3", "sound.py", "preview"]
 id = "tool"
 title = "Play tool cue"
 command = ["python3", "sound.py", "tool"]
+
+[[actions]]
+id = "mute"
+title = "Mute Ambient Sound"
+command = ["python3", "sound.py", "mute"]
+
+[[actions]]
+id = "unmute"
+title = "Unmute Ambient Sound"
+command = ["python3", "sound.py", "unmute"]
+
+[[actions]]
+id = "toggle"
+title = "Toggle Ambient Sound"
+command = ["python3", "sound.py", "toggle"]
 
 [[actions]]
 id = "configure"

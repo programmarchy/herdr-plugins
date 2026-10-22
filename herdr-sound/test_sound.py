@@ -13,6 +13,19 @@ import sound
 
 
 class SoundTests(unittest.TestCase):
+    def test_mute_actions_preserve_other_settings_and_toggle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sound.json"
+            path.write_text(json.dumps({"volume": 0.2, "tool": False}))
+            with mock.patch.object(sound, "CONFIG", path), contextlib.redirect_stdout(io.StringIO()):
+                sound.set_enabled("mute")
+                self.assertFalse(sound.settings()["enabled"])
+                sound.set_enabled("mute")
+                sound.set_enabled("toggle")
+                self.assertTrue(sound.settings()["enabled"])
+                sound.set_enabled("unmute")
+            self.assertEqual(json.loads(path.read_text()), {"volume": 0.2, "tool": False, "enabled": True})
+
     def test_rendered_audio_is_valid_and_decays(self):
         with tempfile.TemporaryDirectory() as directory:
             for kind in sound.SOUNDS:
