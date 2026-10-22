@@ -1,6 +1,6 @@
 id = "programmarchy.ambient-sound"
 name = "Ambient Sound"
-version = "0.2.0"
+version = "0.2.1"
 min_herdr_version = "0.8.0"
 description = "Gentle thinking, tool, and completion sounds for coding agents"
 platforms = ["macos"]

@@ -52,19 +52,25 @@ def set_enabled(mode):
             raise ValueError(f"{CONFIG}: expected a JSON object")
         enabled = data.get("enabled", True)
         next_enabled = not enabled if mode == "toggle" else mode == "unmute"
-        if CONFIG.exists() and enabled == next_enabled:
-            print("Ambient Sound unmuted" if enabled else "Ambient Sound muted")
-            return
-        data["enabled"] = next_enabled
-        with tempfile.NamedTemporaryFile("w", dir=CONFIG.parent, prefix=CONFIG.name + ".", delete=False) as output:
-            temp_path = Path(output.name)
-            json.dump(data, output, indent=2, ensure_ascii=False)
-            output.write("\n")
-        try:
-            os.replace(temp_path, CONFIG)
-        finally:
-            temp_path.unlink(missing_ok=True)
-        print("Ambient Sound unmuted" if next_enabled else "Ambient Sound muted")
+        if not CONFIG.exists() or enabled != next_enabled:
+            data["enabled"] = next_enabled
+            with tempfile.NamedTemporaryFile("w", dir=CONFIG.parent, prefix=CONFIG.name + ".", delete=False) as output:
+                temp_path = Path(output.name)
+                json.dump(data, output, indent=2, ensure_ascii=False)
+                output.write("\n")
+            try:
+                os.replace(temp_path, CONFIG)
+            finally:
+                temp_path.unlink(missing_ok=True)
+    title = "ambient sound unmuted" if next_enabled else "ambient sound muted"
+    print(title)
+    try:
+        subprocess.run([os.environ.get("HERDR_BIN_PATH", "herdr"), "notification", "show", title,
+                        "--position", "top-right", "--sound", "none"],
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=3, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def tone(t, frequency):

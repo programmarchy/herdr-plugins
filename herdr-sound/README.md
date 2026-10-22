@@ -39,7 +39,7 @@ herdr plugin action invoke programmarchy.ambient-sound.unmute
 herdr plugin action invoke programmarchy.ambient-sound.toggle
 ```
 
-The change takes effect on the next cue, including in agents already running. Herdr actions have fixed commands, so the plugin declares one action for each choice. You can bind `programmarchy.ambient-sound.toggle` to a Herdr `plugin_action` keybinding if you want a keyboard shortcut.
+The change takes effect on the next cue, including in agents already running. Each command requests a silent top-right Herdr banner confirming the new state. To see the banner, set `[ui.toast] delivery = "herdr"` in `~/.config/herdr/config.toml`; Herdr's other agent notifications will then use in-app toasts too. Herdr actions have fixed commands, so the plugin declares one action for each choice. You can bind `programmarchy.ambient-sound.toggle` to a Herdr `plugin_action` keybinding if you want a keyboard shortcut.
 
 Create `~/.config/herdr/ambient-sound.json` as needed:
 
