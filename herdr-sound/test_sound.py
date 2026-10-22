@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -19,6 +20,7 @@ class SoundTests(unittest.TestCase):
             path.write_text(json.dumps({"volume": 0.2, "tool": False}))
             with mock.patch.object(sound, "CONFIG", path), \
                  mock.patch.object(sound.subprocess, "run") as notify, \
+                 mock.patch.object(sound, "stop_audio") as stop, \
                  contextlib.redirect_stdout(io.StringIO()):
                 sound.set_enabled("mute")
                 self.assertFalse(sound.settings()["enabled"])
@@ -27,8 +29,26 @@ class SoundTests(unittest.TestCase):
                 self.assertTrue(sound.settings()["enabled"])
                 sound.set_enabled("unmute")
             self.assertEqual(notify.call_count, 4)
+            self.assertEqual(stop.call_count, 2)
             self.assertEqual(notify.call_args.args[0][1:4], ["notification", "show", "ambient sound unmuted"])
             self.assertEqual(json.loads(path.read_text()), {"volume": 0.2, "tool": False, "enabled": True})
+
+    def test_mute_stops_only_ambient_sound_players(self):
+        processes = ("101 afplay -v 0.35 /tmp/old/herdr-sound/audio/pulse.wav\n"
+                     "102 /usr/bin/afplay -v 0.35 /tmp/new/herdr-sound/audio/tool.wav\n"
+                     "103 afplay /tmp/other.wav\n"
+                     "104 python3 sound.py watch\n")
+        with mock.patch.object(sound.subprocess, "check_output", return_value=processes), \
+             mock.patch.object(sound.os, "kill") as kill:
+            sound.stop_audio()
+        self.assertEqual([call.args[0] for call in kill.call_args_list], [101, 102])
+
+    def test_play_times_out_if_afplay_hangs(self):
+        with mock.patch.object(sound.sys, "platform", "darwin"), \
+             mock.patch.object(sound, "audio_path", return_value=Path("/tmp/pulse.wav")), \
+             mock.patch.object(sound.subprocess, "run", side_effect=subprocess.TimeoutExpired("afplay", 1.7)) as run:
+            self.assertFalse(sound.play("pulse", {"enabled": True, "pulse": True, "volume": 0.35}))
+            self.assertEqual(run.call_args.kwargs["timeout"], 1.7)
 
     def test_rendered_audio_is_valid_and_decays(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -8,6 +8,8 @@ import json
 import math
 import os
 from pathlib import Path
+import re
+import signal
 import socket
 import subprocess
 import sys
@@ -62,6 +64,8 @@ def set_enabled(mode):
                 os.replace(temp_path, CONFIG)
             finally:
                 temp_path.unlink(missing_ok=True)
+    if not next_enabled:
+        stop_audio()
     title = "ambient sound unmuted" if next_enabled else "ambient sound muted"
     print(title)
     try:
@@ -124,6 +128,23 @@ def audio_path(kind):
     return path
 
 
+def stop_audio():
+    """Stop any Ambient Sound playback left by this or an older plugin install."""
+    try:
+        processes = subprocess.check_output(["ps", "-axo", "pid=,args="], text=True)
+    except (OSError, subprocess.CalledProcessError):
+        return
+    for row in processes.splitlines():
+        pid, _, command = row.strip().partition(" ")
+        executable = command.split(" ", 1)[0]
+        if (pid.isdigit() and Path(executable).name == "afplay"
+                and re.search(r"/herdr-sound/audio/(?:pulse|tool|done)\.wav$", command)):
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except (OSError, ValueError):
+                pass
+
+
 def play(kind, config=None):
     config = config or settings()
     if not config["enabled"] or not config[kind] or config["volume"] <= 0:
@@ -131,11 +152,12 @@ def play(kind, config=None):
     if sys.platform != "darwin":
         return False
     try:
-        subprocess.Popen(["afplay", "-v", str(config["volume"]), str(audio_path(kind))],
-                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
-        return True
-    except OSError:
+        # afplay can hang after the WAV ends; never leave one running indefinitely.
+        result = subprocess.run(["afplay", "-v", str(config["volume"]), str(audio_path(kind))],
+                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, timeout={"pulse": 1.7, "tool": 1.25, "done": 1.8}[kind])
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
         return False
 
 
